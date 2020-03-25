@@ -147,14 +147,14 @@ void drawLineWu(double x0, double y0, double x1, double y1, int brightness, ucha
 
     if (steep) {
         for (int x = xpxl1 + 1; x < xpxl2; x++) {
-            plot(iPart_(interY), x, rfPart_(interY), data, width, brightness, gamma);
-            plot(iPart_(interY) + 1, x, fPart_(interY), data, width, brightness, gamma);
+            plot(iPart_(interY), x, 1 - rfPart_(interY), data, width, brightness, gamma);
+            plot(iPart_(interY) + 1, x, 1 - fPart_(interY), data, width, brightness, gamma);
             interY += gradient;
         }
     } else {
         for (int x = xpxl1 + 1; x < xpxl2; x++) {
-            plot(x, iPart_(interY), rfPart_(interY), data, width, brightness, gamma);
-            plot(x, iPart_(interY) + 1, fPart_(interY), data, width, brightness, gamma);
+            plot(x, iPart_(interY), 1 - rfPart_(interY), data, width, brightness, gamma);
+            plot(x, iPart_(interY) + 1, 1 - fPart_(interY), data, width, brightness, gamma);
             interY += gradient;
         }
     }
