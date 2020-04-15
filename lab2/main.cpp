@@ -173,8 +173,8 @@ void drawLineWu(double x0, double y0, double x1, double y1, double brightness, u
         for (int x = xpxl1 + 1; x < xpxl2; x++) {
             double rf_part = rfPart_(interY);
             double f_part = fPart_(interY);
-            plot(iPart_(interY), x, rf_part, data, width, brightness, gamma);
-            plot(iPart_(interY) + 1, x, f_part, data, width, brightness, gamma);
+            plotAA(iPart_(interY), x, rf_part, data, width, brightness, gamma);
+            plotAA(iPart_(interY) + 1, x, f_part, data, width, brightness, gamma);
             interY += gradient;
         }
     } else {
