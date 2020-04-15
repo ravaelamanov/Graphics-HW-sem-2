@@ -84,8 +84,8 @@ void drawLineWuNoAA(double x0, double y0, double x1, double y1, double brightnes
         plot(ypxl1, xpxl1, rfPart_(yEnd) * xGap, data, width, brightness, gamma);
         plot(ypxl1 + 1, xpxl1, fPart_(yEnd) * xGap, data, width, brightness, gamma);
     } else {
-        plotAA(xpxl1, ypxl1, rfPart_(yEnd) * xGap, data, width, brightness, gamma);
-        plotAA(xpxl1, ypxl1 + 1, fPart_(yEnd) * xGap, data, width, brightness, gamma);
+        plot(xpxl1, ypxl1, rfPart_(yEnd) * xGap, data, width, brightness, gamma);
+        plot(xpxl1, ypxl1 + 1, fPart_(yEnd) * xGap, data, width, brightness, gamma);
     }
 
     double interY = yEnd + gradient;
