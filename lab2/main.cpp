@@ -2,6 +2,8 @@
 #include <math.h>
 #include <utility>
 #include <stdlib.h>
+#include <algorithm>
+#include <iostream>
 
 typedef unsigned char uchar;
 enum Errors {
@@ -11,8 +13,29 @@ enum ARGS {
     INPUT = 1, OUTPUT, BRIGHTNESS, THICKNESS, X_BEGIN, Y_BEGIN, X_END, Y_END, GAMMA
 };
 
-void plot(int x, int y, double c, uchar *data, int width, int brightness, double gamma) {
-    data[y * width + x] = pow(double(brightness) / 255, gamma) * c * 255;
+void plot(int x, int y, double c, uchar *data, int width, double brightness, double gamma) {
+    if (gamma == 0) { //sRGB gamma
+        if (brightness <= 0.0031308)
+            data[y * width + x] = 12.92 * brightness * c * 255;
+        else
+            data[y * width + x] = (1.055 * pow(brightness, 1 / 2.4) - 0.055) * c * 255;
+    } else // user-defined gamma
+        data[y * width + x] = pow(brightness, gamma) * c * 255;
+}
+
+void plotAA(int x, int y, double alpha, uchar *data, int width, double brightness, double gamma) {
+    double front = brightness;
+    double back = data[y * width + x] / 255.0;
+    if (brightness < 0.5)
+        alpha = 1 - alpha;
+    brightness = front * alpha + (1 - alpha) * back;
+    if (gamma == 0) { //sRGB gamma
+        if (brightness <= 0.0031308)
+            data[y * width + x] = 12.92 * brightness * 255;
+        else
+            data[y * width + x] = (1.055 * pow(brightness, 1 / 2.4) - 0.055)  * 255;
+    } else // user-defined gamma
+        data[y * width + x] = pow(brightness, gamma) * 255;
 }
 
 int iPart_(double x) {
@@ -32,7 +55,7 @@ double rfPart_(double x) {
     return 1 - fPart_(x);
 }
 
-void drawLineWuNoAA(double x0, double y0, double x1, double y1, int brightness, uchar *data, int height, int width,
+void drawLineWuNoAA(double x0, double y0, double x1, double y1, double brightness, uchar *data, int height, int width,
                     int thickness, double gamma) { //Отрисовка линий без сглаживания (NoAA = No anti-aliasing)
     bool steep = abs(y1 - y0) > abs(x1 - x0);
     if (steep) {
@@ -58,12 +81,13 @@ void drawLineWuNoAA(double x0, double y0, double x1, double y1, int brightness, 
     int ypxl1 = iPart_(yEnd);
 
     if (steep) {
-        plot(ypxl1, xpxl1, 1, data, width, brightness, gamma);
-        plot(ypxl1 + 1, xpxl1, 1, data, width, brightness, gamma);
+        plot(ypxl1, xpxl1, rfPart_(yEnd) * xGap, data, width, brightness, gamma);
+        plot(ypxl1 + 1, xpxl1, fPart_(yEnd) * xGap, data, width, brightness, gamma);
     } else {
-        plot(xpxl1, ypxl1, 1, data, width, brightness, gamma);
-        plot(xpxl1, ypxl1 + 1, 1, data, width, brightness, gamma);
+        plotAA(xpxl1, ypxl1, rfPart_(yEnd) * xGap, data, width, brightness, gamma);
+        plotAA(xpxl1, ypxl1 + 1, fPart_(yEnd) * xGap, data, width, brightness, gamma);
     }
+
     double interY = yEnd + gradient;
 
     xEnd = round_(x1);
@@ -96,7 +120,7 @@ void drawLineWuNoAA(double x0, double y0, double x1, double y1, int brightness, 
     }
 }
 
-void drawLineWu(double x0, double y0, double x1, double y1, int brightness, uchar *data, int height, int width,
+void drawLineWu(double x0, double y0, double x1, double y1, double brightness, uchar *data, int height, int width,
                 int thickness, double gamma) {
     bool steep = abs(y1 - y0) > abs(x1 - x0);
     if (steep) {
@@ -141,40 +165,46 @@ void drawLineWu(double x0, double y0, double x1, double y1, int brightness, ucha
         plot(ypxl2, xpxl2, rfPart_(yEnd) * xGap, data, width, brightness, gamma);
         plot(ypxl2 + 1, xpxl2, fPart_(yEnd) * xGap, data, width, brightness, gamma);
     } else {
-        plot(xpxl2, ypxl2, rfPart_(yEnd) * xGap, data, width, brightness, gamma);
+        plot(xpxl2, ypxl2, 1 - rfPart_(yEnd) * xGap, data, width, brightness, gamma);
         plot(xpxl2, ypxl2 + 1, fPart_(yEnd) * xGap, data, width, brightness, gamma);
     }
 
     if (steep) {
         for (int x = xpxl1 + 1; x < xpxl2; x++) {
-            plot(iPart_(interY), x, 1 - rfPart_(interY), data, width, brightness, gamma);
-            plot(iPart_(interY) + 1, x, 1 - fPart_(interY), data, width, brightness, gamma);
+            double rf_part = rfPart_(interY);
+            double f_part = fPart_(interY);
+            plot(iPart_(interY), x, rf_part, data, width, brightness, gamma);
+            plot(iPart_(interY) + 1, x, f_part, data, width, brightness, gamma);
             interY += gradient;
         }
     } else {
         for (int x = xpxl1 + 1; x < xpxl2; x++) {
-            plot(x, iPart_(interY), 1 - rfPart_(interY), data, width, brightness, gamma);
-            plot(x, iPart_(interY) + 1, 1 - fPart_(interY), data, width, brightness, gamma);
+            double rf_part = rfPart_(interY);
+            double f_part = fPart_(interY);
+            plotAA(x, iPart_(interY), rf_part, data, width, brightness, gamma);
+            plotAA(x, iPart_(interY) + 1, f_part, data, width, brightness, gamma);
             interY += gradient;
         }
     }
 }
 
-void drawRectangle(double x0, double y0, double x1, double y1, int brightness, uchar *data, int height, int width,
+
+void drawRectangle(double x0, double y0, double x1, double y1, double brightness, uchar *data, int height, int width,
                    int thickness, double gamma) {
     double dx = x1 - x0;
     double dy = y1 - y0;
     double dist = sqrt(dx * dx + dy * dy);
     dx /= dist;
     dy /= dist;
-    double a0 = x0 - thickness * dy / 2;
-    double b0 = y0 + thickness * dx / 2;
-    double a1 = x0 + thickness * dy / 2;
-    double b1 = y0 - thickness * dx / 2;
-    double a2 = x1 - thickness * dy / 2;
-    double b2 = y1 + thickness * dx / 2;
-    double a3 = x1 + thickness * dy / 2;
-    double b3 = y1 - thickness * dx / 2;
+    double a0, b0, a1, b1, a2, b2, a3, b3;
+    a0 = x0 - thickness * dy / 2;
+    b0 = y0 + thickness * dx / 2;
+    a1 = x0 + thickness * dy / 2;
+    b1 = y0 - thickness * dx / 2;
+    a2 = x1 - thickness * dy / 2;
+    b2 = y1 + thickness * dx / 2;
+    a3 = x1 + thickness * dy / 2;
+    b3 = y1 - thickness * dx / 2;
     drawLineWu(a0, b0, a2, b2, brightness, data, height, width, thickness, gamma);
     drawLineWu(a1, b1, a3, b3, brightness, data, height, width, thickness, gamma);
     for (int i = thickness - 1; i >= 0; i--) {
@@ -191,7 +221,7 @@ void drawRectangle(double x0, double y0, double x1, double y1, int brightness, u
     }
 }
 
-void drawLine(double x0, double y0, double x1, double y1, int brightness, uchar *data, int height, int width,
+void drawLine(double x0, double y0, double x1, double y1, double brightness, uchar *data, int height, int width,
               int thickness, double gamma) {
     if (thickness == 1) {
         drawLineWu(x0, y0, x1, y1, brightness, data, height, width, thickness, gamma);
@@ -211,7 +241,7 @@ int main(int argc, char **argv) {
     }
     double gamma;
     if (argc == 9)
-        gamma = 1/2.2;
+        gamma = 0;
     if (argc == 10)
         gamma = atof(argv[GAMMA]);
     FILE *input = fopen(argv[INPUT], "rb");
@@ -238,7 +268,7 @@ int main(int argc, char **argv) {
             return 1;
         }
         drawLine(atof(argv[X_BEGIN]), atof(argv[Y_BEGIN]), atof(argv[X_END]), atof(argv[Y_END]),
-                 atoi(argv[BRIGHTNESS]),
+                 atof(argv[BRIGHTNESS]) / 255.0,
                  data, height, width, atof(argv[THICKNESS]), gamma);
 
         FILE *output = fopen(argv[OUTPUT], "wb");
