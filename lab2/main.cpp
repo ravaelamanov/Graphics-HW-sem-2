@@ -3,7 +3,6 @@
 #include <utility>
 #include <stdlib.h>
 #include <algorithm>
-#include <iostream>
 
 typedef unsigned char uchar;
 enum Errors {
@@ -24,18 +23,15 @@ void plot(int x, int y, double c, uchar *data, int width, double brightness, dou
 }
 
 void plotAA(int x, int y, double alpha, uchar *data, int width, double brightness, double gamma) {
-    double front = brightness;
     double back = data[y * width + x] / 255.0;
-    if (brightness < 0.5)
-        alpha = 1 - alpha;
-    brightness = front * alpha + (1 - alpha) * back;
     if (gamma == 0) { //sRGB gamma
         if (brightness <= 0.0031308)
-            data[y * width + x] = 12.92 * brightness * 255;
+            data[y * width + x] = 12.92 * brightness * 255 * alpha + back * 255 * (1 - alpha);
         else
-            data[y * width + x] = (1.055 * pow(brightness, 1 / 2.4) - 0.055)  * 255;
+            data[y * width + x] = (1.055 * pow(brightness, 1 / 2.4) - 0.055) * 255 * alpha +
+                                  back * (1 - alpha) * 255;
     } else // user-defined gamma
-        data[y * width + x] = pow(brightness, gamma) * 255;
+        data[y * width + x] = pow(brightness, gamma) * 255 * alpha + back * (1 - alpha) * 255;
 }
 
 int iPart_(double x) {
@@ -81,11 +77,11 @@ void drawLineWuNoAA(double x0, double y0, double x1, double y1, double brightnes
     int ypxl1 = iPart_(yEnd);
 
     if (steep) {
-        plot(ypxl1, xpxl1, rfPart_(yEnd) * xGap, data, width, brightness, gamma);
-        plot(ypxl1 + 1, xpxl1, fPart_(yEnd) * xGap, data, width, brightness, gamma);
+        plotAA(ypxl1, xpxl1, rfPart_(yEnd) * xGap, data, width, brightness, gamma);
+        plotAA(ypxl1 + 1, xpxl1, fPart_(yEnd) * xGap, data, width, brightness, gamma);
     } else {
-        plot(xpxl1, ypxl1, rfPart_(yEnd) * xGap, data, width, brightness, gamma);
-        plot(xpxl1, ypxl1 + 1, fPart_(yEnd) * xGap, data, width, brightness, gamma);
+        plotAA(xpxl1, ypxl1, rfPart_(yEnd) * xGap, data, width, brightness, gamma);
+        plotAA(xpxl1, ypxl1 + 1, fPart_(yEnd) * xGap, data, width, brightness, gamma);
     }
 
     double interY = yEnd + gradient;
@@ -98,11 +94,11 @@ void drawLineWuNoAA(double x0, double y0, double x1, double y1, double brightnes
     int ypxl2 = iPart_(yEnd);
 
     if (steep) {
-        plot(ypxl2, xpxl2, 1, data, width, brightness, gamma);
-        plot(ypxl2 + 1, xpxl2, 1, data, width, brightness, gamma);
+        plotAA(ypxl2, xpxl2, rfPart_(yEnd) * xGap, data, width, brightness, gamma);
+        plotAA(ypxl2 + 1, xpxl2, fPart_(yEnd) * xGap, data, width, brightness, gamma);
     } else {
-        plot(xpxl2, ypxl2, 1, data, width, brightness, gamma);
-        plot(xpxl2, ypxl2 + 1, 1, data, width, brightness, gamma);
+        plotAA(xpxl2, ypxl2, rfPart_(yEnd) * xGap, data, width, brightness, gamma);
+        plotAA(xpxl2, ypxl2 + 1, fPart_(yEnd) * xGap, data, width, brightness, gamma);
     }
 
     if (steep) {
@@ -146,11 +142,11 @@ void drawLineWu(double x0, double y0, double x1, double y1, double brightness, u
     int ypxl1 = iPart_(yEnd);
 
     if (steep) {
-        plot(ypxl1, xpxl1, rfPart_(yEnd) * xGap, data, width, brightness, gamma);
-        plot(ypxl1 + 1, xpxl1, fPart_(yEnd) * xGap, data, width, brightness, gamma);
+        plotAA(ypxl1, xpxl1, rfPart_(yEnd) * xGap, data, width, brightness, gamma);
+        plotAA(ypxl1 + 1, xpxl1, fPart_(yEnd) * xGap, data, width, brightness, gamma);
     } else {
-        plot(xpxl1, ypxl1, rfPart_(yEnd) * xGap, data, width, brightness, gamma);
-        plot(xpxl1, ypxl1 + 1, fPart_(yEnd) * xGap, data, width, brightness, gamma);
+        plotAA(xpxl1, ypxl1, rfPart_(yEnd) * xGap, data, width, brightness, gamma);
+        plotAA(xpxl1, ypxl1 + 1, fPart_(yEnd) * xGap, data, width, brightness, gamma);
     }
     double interY = yEnd + gradient;
 
@@ -162,15 +158,15 @@ void drawLineWu(double x0, double y0, double x1, double y1, double brightness, u
     int ypxl2 = iPart_(yEnd);
 
     if (steep) {
-        plot(ypxl2, xpxl2, rfPart_(yEnd) * xGap, data, width, brightness, gamma);
-        plot(ypxl2 + 1, xpxl2, fPart_(yEnd) * xGap, data, width, brightness, gamma);
+        plotAA(ypxl2, xpxl2, rfPart_(yEnd) * xGap, data, width, brightness, gamma);
+        plotAA(ypxl2 + 1, xpxl2, fPart_(yEnd) * xGap, data, width, brightness, gamma);
     } else {
-        plot(xpxl2, ypxl2, 1 - rfPart_(yEnd) * xGap, data, width, brightness, gamma);
-        plot(xpxl2, ypxl2 + 1, fPart_(yEnd) * xGap, data, width, brightness, gamma);
+        plotAA(xpxl2, ypxl2, rfPart_(yEnd) * xGap, data, width, brightness, gamma);
+        plotAA(xpxl2, ypxl2 + 1, fPart_(yEnd) * xGap, data, width, brightness, gamma);
     }
 
     if (steep) {
-        for (int x = xpxl1 + 1; x < xpxl2; x++) {
+        for (int x = xpxl1 + 1; x < xpxl2 - 1; x++) {
             double rf_part = rfPart_(interY);
             double f_part = fPart_(interY);
             plotAA(iPart_(interY), x, rf_part, data, width, brightness, gamma);
@@ -178,7 +174,7 @@ void drawLineWu(double x0, double y0, double x1, double y1, double brightness, u
             interY += gradient;
         }
     } else {
-        for (int x = xpxl1 + 1; x < xpxl2; x++) {
+        for (int x = xpxl1 + 1; x < xpxl2 - 1; x++) {
             double rf_part = rfPart_(interY);
             double f_part = fPart_(interY);
             plotAA(x, iPart_(interY), rf_part, data, width, brightness, gamma);
@@ -207,7 +203,7 @@ void drawRectangle(double x0, double y0, double x1, double y1, double brightness
     b3 = y1 - thickness * dx / 2;
     drawLineWu(a0, b0, a2, b2, brightness, data, height, width, thickness, gamma);
     drawLineWu(a1, b1, a3, b3, brightness, data, height, width, thickness, gamma);
-    for (int i = thickness - 1; i >= 0; i--) {
+    for (int i = thickness - 2; i >= 0; i--) {
         a0 = x0 - i * dy / 2;
         b0 = y0 + i * dx / 2;
         a1 = x0 + i * dy / 2;
